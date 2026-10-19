@@ -1420,16 +1420,40 @@ function handlePromo(promoId) {
 }
 function handleEvent(eventId, category) { quickCategory(category); }
 
-// GA4: 상품 상세 add_to_cart (item_name, item_option, value = 옵션 단가 × 수량)
+// GA4 전자상거래 권장 이벤트 규격: items[] 항목 (item_id, item_name, item_category, item_brand, item_variant, price, quantity)
+function gaItem(product, variant, qty) {
+  return {
+    item_id: product.id,
+    item_name: product.name,
+    item_category: product.category,
+    item_brand: product.brand,
+    item_variant: variant.label,
+    price: variant.price,
+    quantity: qty
+  };
+}
+
+// GA4: 상품 상세 조회 view_item (기본 옵션 기준)
+function gaTrackViewItem(product) {
+  const variant = product.variants[0];
+  gtag('event', 'view_item', {
+    currency: 'KRW',
+    value: variant.price,
+    items: [gaItem(product, variant, 1)]
+  });
+}
+
+// GA4: 상품 상세 add_to_cart (value = 옵션 단가 × 수량). item_name/item_option은 택소노미의 사용자 정의 파라미터
 function trackDetailEvent(eventName, productId) {
   const product = PRODUCTS.find(p => p.id === productId);
   if (!product) return;
   const variant = getVariant(product, selectedVariantId);
   gtag('event', eventName, {
-    item_name: product.name,
-    item_option: variant.label,
+    currency: 'KRW',
     value: variant.price * detailQty,
-    currency: 'KRW'
+    items: [gaItem(product, variant, detailQty)],
+    item_name: product.name,
+    item_option: variant.label
   });
 }
 
@@ -1577,6 +1601,7 @@ function handleRoute() {
       const product = PRODUCTS.find(p => p.id === param);
       if (!product) { navigate('/', true); return; }
       renderProductDetail(product);
+      gaTrackViewItem(product);
       showPage('detail');
       setPageMeta('product', path, PAGE_TITLES.product(product));
       break;
@@ -2449,16 +2474,18 @@ function placeOrder() {
   const recipientName = document.getElementById('field-recipient-name')?.value?.trim();
   if (!recipientName) { alert('받는 분 이름을 입력해주세요.'); return; }
 
-  // GA4: 결제하기 클릭 시 purchase (장바구니 상품별 1건, value = 옵션 단가 × 수량)
-  cart.forEach(c => {
-    const line = cartLine(c);
-    if (!line) return;
-    gtag('event', 'purchase', {
-      item_name: line.product.name,
-      item_option: line.variant.label,
-      value: line.lineTotal,
-      currency: 'KRW'
-    });
+  // GA4: 결제하기 클릭 시 purchase (권장 규격: transaction_id, value, currency, shipping, coupon, items[])
+  const orderId = 'AGM-' + Date.now();
+  const gaLines = cart.map(cartLine).filter(Boolean);
+  gtag('event', 'purchase', {
+    transaction_id: orderId,
+    currency: 'KRW',
+    value: gaLines.reduce((sum, l) => sum + l.lineTotal, 0),
+    shipping: getDeliveryFee(getCartSubtotal()),
+    coupon: appliedCoupon ? appliedCoupon.code : '',
+    items: gaLines.map(l => gaItem(l.product, l.variant, l.qty)),
+    item_name: gaLines.map(l => l.product.name).join(', '),
+    item_option: gaLines.map(l => l.variant.label).join(', ')
   });
 
   const subtotal = getCartSubtotal();
@@ -2466,7 +2493,7 @@ function placeOrder() {
   const discount = getDiscount();
 
   lastOrder = {
-    orderId:   'AGM-' + Date.now(),
+    orderId:   orderId,
     total:     Math.max(0, subtotal + shipping - discount),
     subtotal, shipping, discount,
     itemCount: cart.reduce((s, c) => s + c.qty, 0),
