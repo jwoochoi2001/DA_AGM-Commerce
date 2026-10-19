@@ -1,0 +1,13 @@
+{
+  "name": "agm-commerce",
+  "version": "1.0.0",
+  "description": "AGM마켓 - GA4/GTM 데모용 식품 쇼핑몰",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
