@@ -11,7 +11,9 @@
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-20C08W3HCC');
+    // 이 사이트는 주소의 # 뒷부분만 바뀌는 구조라 GA가 화면 이동을 감지하지 못한다.
+    // 첫 화면 포함 모든 page_view를 화면 이동 시점에 직접 보낸다(setPageMeta).
+    gtag('config', 'G-20C08W3HCC', { send_page_view: false });
   </script>
 
   <!-- ✅ Google Tag Manager
@@ -1468,10 +1470,10 @@ function gaListItems(el, section) {
 
 // GA4: 상품 카드가 속한 메인 영역 이름 (section 파라미터)
 function gaSection(el) {
-  if (el.closest('#best-product-list')) return '베스트';
+  if (el.closest('#best-product-list')) return '베스트 상품';
   if (el.closest('#new-arrival-list')) return '신상품';
   if (el.closest('#recently-viewed-list')) return '최근 본 상품';
-  if (el.classList.contains('deal-card') || el.closest('.deal-card')) return '특가';
+  if (el.classList.contains('deal-card') || el.closest('.deal-card')) return '오늘의 특가';
   return '전체 상품';
 }
 
@@ -1578,8 +1580,18 @@ function parseRoute() {
   };
 }
 
+let gaLastPagePath = null;
 function setPageMeta(type, path, title) {
   document.title = title;
+  // GA4 page_view: 화면(경로)이 바뀔 때마다 1회. 같은 화면 재렌더는 제외
+  if (path !== gaLastPagePath) {
+    gaLastPagePath = path;
+    gtag('event', 'page_view', {
+      page_title: title,
+      page_location: location.href,
+      page_path: path
+    });
+  }
   document.body.setAttribute('data-page-type', type);
   document.body.setAttribute('data-page-path', path);
 }
