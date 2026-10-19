@@ -1457,6 +1457,15 @@ function trackDetailEvent(eventName, productId) {
   });
 }
 
+// GA4: 메인 목록 카드용 items[] (item_view / item_click). 옵션은 기본 옵션 기준
+function gaListItems(el, section) {
+  const product = PRODUCTS.find(p => p.id === el.dataset.productId);
+  if (!product) return [];
+  const item = gaItem(product, product.variants[0], 1);
+  item.item_list_name = section;
+  return [item];
+}
+
 // GA4: 상품 카드가 속한 메인 영역 이름 (section 파라미터)
 function gaSection(el) {
   if (el.closest('#best-product-list')) return '베스트';
@@ -1476,7 +1485,8 @@ function gaSection(el) {
       if (!en.isIntersecting || seen.has(el)) return;
       seen.add(el);
       io.unobserve(el);
-      gtag('event', 'item_view', { item_name: el.dataset.productName, section: gaSection(el) });
+      const section = gaSection(el);
+      gtag('event', 'item_view', { item_name: el.dataset.productName, section, items: gaListItems(el, section) });
     });
   }, { threshold: 0.5 }) : null;
   function scan(root) {
@@ -1499,7 +1509,9 @@ document.addEventListener('click', e => {
   const card = e.target.closest('.deal-card, .best-card, .product-card .product-thumbnail, .product-card .product-name');
   if (!card || card.closest('.related-product-card') || card.classList.contains('related-product-card')) return;
   const holder = card.closest('[data-product-name]');
-  if (holder) gtag('event', 'item_click', { item_name: holder.dataset.productName, section: gaSection(holder) });
+  if (!holder) return;
+  const section = gaSection(holder);
+  gtag('event', 'item_click', { item_name: holder.dataset.productName, section, items: gaListItems(holder, section) });
 }, true);
 
 // GA4: 시원 할인 프로모션 배너(여름 시원특가) 클릭 → promotion_click
